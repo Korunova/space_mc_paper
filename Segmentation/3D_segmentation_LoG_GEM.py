@@ -3,7 +3,6 @@
 ===============================================================================
 3D Particle Segmentation and Spatial Relationship Analysis
 ===============================================================================
-
 Description
 -----------
 This script performs automated 3D segmentation of fluorescent particles and
@@ -71,6 +70,7 @@ from skimage.segmentation import relabel_sequential
 from skimage.segmentation import find_boundaries
 from skimage import morphology 
 from skimage.feature import peak_local_max
+from scipy.ndimage import distance_transform_edt
 
 # -------------------------
 # 1) preprocessing function
@@ -90,106 +90,7 @@ def preprocess_blur(vol, sigma=1.0):
     return blurred
 
 # -------------------------
-# 2) 3D LoG detection
-# -------------------------
-def log3d_detect(vol,
-                 min_sigma=1.0,
-                 max_sigma=4.0,
-                 num_sigma=6,
-                 threshold=0.02):
-    """
-    Detect blobs with blob_log and produce a label image of spherical seeds.
-    Returns: labels (Z,Y,X) int32, blobs array (n, 4) with (z,y,x,sigma)
-    """
-    # normalize to 0..1 to make thresholding more consistent
-    v = vol.astype(np.float32)
-    if v.ptp() > 0:
-        v = (v - v.min()) / (v.ptp())
-    blobs = blob_log(v,
-                     min_sigma=min_sigma,
-                     max_sigma=max_sigma,
-                     num_sigma=num_sigma,
-                     threshold=threshold,
-                     overlap=0.5)
-    # blob_log returns (z, y, x, sigma)
-    labels = np.zeros_like(v, dtype=np.int32)
-    if blobs.size == 0:
-        return labels, blobs
-
-    # for i, (zc, yc, xc, sigma) in enumerate(blobs, start=1):
-    #     z, y, x = map(int, np.round([zc, yc, xc]))
-    #     # skip if already occupied
-    #     if labels[z, y, x] == 0:
-    #         labels[z, y, x] = i
-            
-    zz, yy, xx = np.indices(v.shape)
-
-    for i, b in enumerate(blobs, start=1):
-        zc, yc, xc, sigma = b
-        r = 2
-        # spherical mask around center
-        mask = (zz - zc) ** 2 + (yy - yc) ** 2 + (xx - xc) ** 2 <= r * r
-        # don't overwrite existing labels (keeps seeds separate)
-        labels[np.logical_and(mask, labels == 0)] = i
-    
-    # small cleanup / relabel
-    labels = measure.label(labels > 0, connectivity=1)
-
-    # small cleanup / relabel
-    # labels, _, _ = relabel_sequential(labels)
-    return labels, blobs
-
-
-
-# -------------------------
-# 3) Watershed
-# -------------------------
-
-def detect_particles_watershed_nd(channel,
-                                  markers=None,
-                                  peak_coords=None,
-                                  mask=None,
-                                  use_distance=True,
-                                  smooth_sigma=1.0,
-                                  min_size=8):
-    """
-    2D/3D watershed that accepts either:
-      - markers: integer-labelled marker image (same shape as channel)
-    mask should be a boolean array (True where segmentation is allowed).
-    Returns: centroids (list of tuples), labels (ndarray, int), smoothed (ndarray)
-    """
-    # smoothing (works in nD)
-    smoothed = gaussian(channel, sigma=smooth_sigma, preserve_range=True)
-
-    mask = (mask.astype(bool))
-
-    # Choose watershed image: distance or intensity
-    if use_distance:
-        # distance transform of mask (nd)
-        distance = ndi.distance_transform_edt(mask)
-        ws_image = distance
-    else:
-        # intensity-based
-        ws_image = smoothed
-
-    labels = watershed(-ws_image, markers=markers, mask=mask)
-
-    # # cleanup: remove small objects and relabel
-    # if labels.max() > 0:
-    #     labels = morphology.remove_small_objects(labels, min_size=min_size)
-    #     labels = measure.label(labels > 0, connectivity=1)
-
-    # compute centroids (regionprops works for 2D/3D)
-    centroids = []
-    for region in measure.regionprops(labels):
-        centroids.append(tuple(region.centroid))  # (z,y,x) for 3D, (y,x) for 2D
-
-    return centroids, labels.astype(np.int32), mask, ws_image, markers
-
-
-
-# -------------------------
-# 4) Local Treshold
+# 2) Local Treshold
 # -------------------------
 def local_slice_mask(vol, block_size=51, offset=0.0, method='gaussian', min_size=2):
     """
@@ -211,32 +112,62 @@ def local_slice_mask(vol, block_size=51, offset=0.0, method='gaussian', min_size
     return mask, labels
 
 # -------------------------
-# 5) LoG based segmentation
+# 3) LoG based segmentation
 # -------------------------
 
-def segmentation_LoG(channel, sigma_big = 2, sigma_small = 1.5, max_projection_trsh = 10, view = False):
+def segmentation_LoG(channel, sigma_big = 2, sigma_small = 1.5, max_projection_trsh = 10, 
+                     percentile = 96, local_trsh = 201,
+                     watershed_split = False, view = False):
 
     blurred = preprocess_blur(channel, sigma=blur_sigma)
-    trsh, _ = local_slice_mask(blurred, 51) 
+    trsh, _ = local_slice_mask(blurred, local_trsh) 
     
     log_big = gaussian_laplace(channel, sigma= sigma_big)
-    particles_big = (log_big > np.percentile(log_big, 96)) & trsh
+    particles_big = (log_big > np.percentile(log_big, percentile)) & trsh
     
     log_small = gaussian_laplace(channel, sigma= sigma_small) 
-    particles_small = (log_small > np.percentile(log_small, 96)) & ~particles_big & trsh
+    particles_small = (log_small > np.percentile(log_small, percentile)) & ~particles_big & trsh
     
     particles = (particles_big | particles_small) 
     particles_filled = binary_fill_holes(particles)
     
-    labels, n = label(particles_filled)
+    if watershed_split:
+        dist = distance_transform_edt(particles_filled)
     
-    labels_filtered = np.zeros_like(labels)
+        coords = peak_local_max(
+            dist,
+            labels=particles_filled,
+            #footprint=np.ones((3, 3, 3)),
+            min_distance = 1,
+            threshold_abs=0,
+            exclude_border=False
+        )
     
-    for lab in range(1, n + 1):
-        mask = labels == lab
-        max_intensity = channel[mask].max()   # max over Z,Y,X for this object
+        if coords.size == 0:
+            # Fallback if no peaks are found
+            labels_ws = label(particles_filled)
+        else:
+            markers = np.zeros_like(channel, dtype=np.int32)
+            for i, coord in enumerate(coords, start=1):
+                markers[tuple(coord)] = i
+            markers, _ = label(markers > 0)
     
-        if max_intensity > max_projection_trsh:   # your threshold
+            labels_ws = watershed(-dist, markers, mask=particles_filled)
+        
+        labels_to_filter = labels_ws
+    
+    else:
+        labels_to_filter, n = label(particles_filled)
+        
+    labels_filtered = np.zeros_like(labels_to_filter)
+    
+    for lab in range(1, labels_to_filter.max() + 1):
+        mask = labels_to_filter == lab
+        if not np.any(mask):
+            continue
+    
+        max_intensity = channel[mask].max()
+        if max_intensity > max_projection_trsh:
             labels_filtered[mask] = lab
     
     if view:
@@ -264,10 +195,11 @@ def segmentation_LoG(channel, sigma_big = 2, sigma_small = 1.5, max_projection_t
         viewer.add_image(labels_filtered, name='markers', colormap='viridis', opacity=0.6)
         napari.run()
     
-    return label(particles_filled)
+    return labels_filtered
+
 
 # -------------------------
-# 6) Save Segmentatin as Stack 
+# 4) Save Segmentatin as Stack 
 # -------------------------
 
 def save_segmentation(labels_list, save_path):
@@ -283,7 +215,7 @@ def save_segmentation(labels_list, save_path):
     )
 
 # -------------------------
-# 7) Radial Shell Analysis
+# 5) Radial Shell Analysis
 # -------------------------
 
 def sg_radial_density_df(labels_particles, labels_sg, ero_iter=2, dil_iter=2, voxel_volume = 0.1137476 * 0.1137476 * 0.1001359):
@@ -360,7 +292,7 @@ def sg_radial_density_df(labels_particles, labels_sg, ero_iter=2, dil_iter=2, vo
     return pd.DataFrame(rows)
 
 # -------------------------
-# 7) Particle-to-SG Boundary Analysis
+# 6) Particle-to-SG Boundary Analysis
 # -------------------------
 
 
@@ -482,8 +414,8 @@ def sg_particle_relation_df(
 
 #------Parameters---------------
 blur_sigma = 1
-view_napari = True
-save = False
+view_napari = False
+save = True
 
 ExperDirectory = r"D:\manuscripts\SG_GEM paper\RK_SG_FXR1_DDX3_G3BP1_DAPI_Leica\GEMSapphire_G3BP1StarRed_DAPI"
 experiments = [f for f in os.listdir(ExperDirectory)
@@ -520,8 +452,8 @@ for idx, experiment in enumerate(experiments):
     
     print(experiment)
     
-    save_folder_segmentation = f'{ExperDirectory}/{experiment}/segmentation/'
-    save_folder_results = f'{ExperDirectory}/{experiment}/results/'
+    save_folder_segmentation = f'{ExperDirectory}/{experiment}/segmentation_v2/'
+    save_folder_results = f'{ExperDirectory}/{experiment}/results_v2/'
     directory = f'{ExperDirectory}/{experiment}/'
     
     os.makedirs(save_folder_segmentation, exist_ok=True)  
@@ -557,14 +489,17 @@ for idx, experiment in enumerate(experiments):
         ch1_list.append(ch1)
         ch2_list.append(ch2)
                 
-        labels_ch1, _ = segmentation_LoG(ch1, sigma_small = 1, max_projection_trsh = 1, view = False)
-        labels_ch2, _ = segmentation_LoG(ch2)
+        labels_ch1 = segmentation_LoG(ch1, sigma_big = 2, sigma_small = 1, max_projection_trsh = 1, 
+                                      percentile = 98, local_trsh = 51, 
+                                      watershed_split=True, view = False)
+        labels_ch2 = segmentation_LoG(ch2, percentile=98, local_trsh=151,
+                                      view = False)
         
         if save:
             save_segmentation([labels_ch1, labels_ch2], save_path_segmentation)
             
-            # df = sg_particle_relation_df(labels_ch1, labels_ch2)
-            # df.to_csv(save_path_csv, index=False)
+            df = sg_particle_relation_df(labels_ch1, labels_ch2)
+            df.to_csv(save_path_csv, index=False)
 
         if view_napari:
             with napari.gui_qt():
@@ -577,10 +512,7 @@ for idx, experiment in enumerate(experiments):
                 # add the VOI as labels (convert bool->int labels)
                 
         print("Here")
-        
-        break
-    break
-        
+
 
 
 
