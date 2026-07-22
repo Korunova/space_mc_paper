@@ -224,7 +224,7 @@ def local_slice_mask(vol, block_size=51, offset=0.0, method='gaussian', min_size
 # -------------------------
 
 
-def segmentation_LoG(channel, sigma_big = 2, sigma_small = 1.5, max_projection_trsh = 10, view = False):
+def segmentation_LoG(channel, sigma_big = 2, sigma_small = 1.5, view = False):
 
     blurred = preprocess_blur(channel, sigma=blur_sigma)
     trsh, _ = local_slice_mask(blurred, 51) 
@@ -237,17 +237,6 @@ def segmentation_LoG(channel, sigma_big = 2, sigma_small = 1.5, max_projection_t
     
     particles = (particles_big | particles_small) 
     particles_filled = binary_fill_holes(particles)
-    
-    labels, n = label(particles_filled)
-    
-    labels_filtered = np.zeros_like(labels)
-    
-    for lab in range(1, n + 1):
-        mask = labels == lab
-        max_intensity = channel[mask].max()   # max over Z,Y,X for this object
-    
-        if max_intensity > max_projection_trsh:   # your threshold
-            labels_filtered[mask] = lab
     
     if view:
         
