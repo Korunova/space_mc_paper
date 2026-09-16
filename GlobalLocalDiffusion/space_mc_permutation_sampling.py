@@ -309,8 +309,8 @@ for idx, replica in enumerate(experimental_replicas):
     
         print(f'{experiment}')
         
-        directory_segm = f'{ExperDirectory}/tifSG_{experiment}/'
-        directory_tracks = f'{ExperDirectory}/tifSPT_{experiment}/'
+        directory_segm = f'{ExperDirectory}/SG_masks/tifSG_{experiment}/'
+        directory_tracks = f'{ExperDirectory}/SPT_tracks/tifSPT_{experiment}/'
         #tiff_files = [f for f in os.listdir(directory_segm) if f.endswith('.tif') and "Probabilities" not in f and "LoGsegm" not in f]
         tiff_files = [f for f in os.listdir(directory_tracks) if f.endswith('.tif')]
         
