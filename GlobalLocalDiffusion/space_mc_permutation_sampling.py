@@ -89,7 +89,7 @@ plt.rcParams.update({
 }) 
 
 #-----------------INPUT DATA--------------------------------
-ExperDirectory = r"D:\manuscripts\SG_GEM paper\SPT"
+ExperDirectory = r"D:\SPT"
 SPT_folder = 'LK_SPT_V3'
 output_folder = r"D:\manuscripts\SG_GEM paper\Figures_Results\draft2_figureS1\v2"
 
