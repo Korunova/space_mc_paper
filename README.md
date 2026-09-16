@@ -1,5 +1,5 @@
 [readme.md](https://github.com/user-attachments/files/30203006/readme.md)
-Note: line 9 and 227 to change before publicity of the script (authors and paper name)
+Note: add dataset links!
 
 # SPaCe-MC: Spatially Constrained Monte Carlo Analysis
 
@@ -7,7 +7,7 @@ Note: line 9 and 227 to change before publicity of the script (authors and paper
 
 This repository contains the Python code accompanying the manuscript:
 
-> **SPaCe-MC: Spatially Constrained Monte Carlo Analysis of Single-Particle Diffusion in Stress Granules**
+> **Spatially Constrained Monte Carlo Permutation Test Reveals Diffusion Changes Near Stress Granules**
 
 The repository implements a complete workflow for:
 
