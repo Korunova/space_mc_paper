@@ -1,5 +1,4 @@
 [readme.md](https://github.com/user-attachments/files/30203006/readme.md)
-Note: add dataset links!
 
 # SPaCe-MC: Spatially Constrained Monte Carlo Analysis
 
@@ -211,8 +210,8 @@ Installation typically takes a few minutes on a standard desktop or laptop compu
 
 The demonstration datasets are available through Figshare:
 
-* [Single-particle tracking (SPT) data for GEMs](FIGSHARE_SPT_DATA_URL)
-* [Stress-granule segmentation masks](FIGSHARE_SG_MASKS_URL)
+Single-particle tracking (SPT) data for GEMs: https://doi.org/10.6084/m9.figshare.33860761
+Stress-granule segmentation masks: https://doi.org/10.6084/m9.figshare.33858445
 
 The SPT dataset is approximately 13 GB; the segmentation-mask dataset is approximately 233 MB. Download and extract both datasets before running the demo.
 
