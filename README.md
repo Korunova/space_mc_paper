@@ -296,9 +296,7 @@ If you use this code in your research, please cite:
 
 # License
 
-This repository is distributed for academic research purposes.
-
-Please cite the accompanying manuscript when using this code.
+This repository is released under the MIT License.
 
 ---
 
