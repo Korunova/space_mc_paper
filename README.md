@@ -176,9 +176,11 @@ The `utils` directory contains reusable functions shared across the analysis scr
 
 ---
 
-# Requirements
+# System Requirements
 
-The code requires Python 3 and the following major packages:
+The code was developed and run using Python 3 on a standard personal computer. No GPU or other non-standard hardware is required.
+
+The main Python dependencies are:
 
 * numpy
 * scipy
@@ -189,43 +191,106 @@ The code requires Python 3 and the following major packages:
 * napari
 * fbm
 
-Additional package versions can be found in the corresponding Python scripts.
+Package versions were not formally fixed. The scripts may require minor adjustments depending on the local Python environment and package versions.
 
 ---
+
+# Installation
+
+Install Python 3, then install the required packages:
+
+```bash
+pip install numpy scipy pandas matplotlib scikit-image tifffile napari fbm
+```
+
+Installation typically takes a few minutes on a standard desktop or laptop computer.
+
+---
+
+# Demo Data for Reproducing the Analyses Presented in the Paper
+
+The demonstration datasets are available through Figshare:
+
+* [Single-particle tracking (SPT) data for GEMs](FIGSHARE_SPT_DATA_URL)
+* [Stress-granule segmentation masks](FIGSHARE_SG_MASKS_URL)
+
+The SPT dataset is approximately 13 GB; the segmentation-mask dataset is approximately 233 MB. Download and extract both datasets before running the demo.
 
 # Input Data
 
-The workflow requires:
+The SPaCe-MC workflow requires:
 
-* fluorescence microscopy image stacks (OME-TIFF or TIFF)
-* stress granule segmentation masks
-* single-particle tracking CSV files
+* single-particle tracking CSV files;
+* corresponding stress-granule segmentation masks;
 
-Several scripts expect users to specify local input and output directories near the beginning of each script.
+Several scripts require users to specify local input and output directories near the beginning of the script.
 
----
+# Demo: Running SPaCe-MC on the Figshare Data
 
-# Running the Code
+1. Download and extract the SPT and segmentation-mask datasets from Figshare.
 
-The scripts reproduce the analyses presented in the manuscript.
+2. In `GlobalLocalDiffusion/space_mc_permutation_sampling.py`, update the input paths to the downloaded SPT CSV files and segmentation-mask files. Set an output directory for the generated permutation datasets.
 
-Because they were developed for the original study, input and output directories are specified as local file paths within each script. Before running the code, users should modify these paths to match the location of their own datasets and desired output directories.
+3. Run:
 
-The analysis workflow is:
+   ```bash
+   python GlobalLocalDiffusion/space_mc_permutation_sampling.py
+   ```
 
-1. Segment stress granules (`Segmentation/`)
-2. Generate SPaCe-MC control regions (`space_mc_permutation_sampling.py`)
-3. Perform diffusion analysis (`space_mc.py`)
-4. Validate using simulations (`space_mc_simulation_validation/`)
-5. Generate figures (`space_mc_visualization.py`)
+   This step assigns trajectories to stress granules and randomized cytoplasmic control regions and exports the corresponding trajectory datasets.
 
----
+4. In `GlobalLocalDiffusion/space_mc.py`, update the input paths to the output generated in the previous step and specify an output directory.
+
+5. Run:
+
+   ```bash
+   python GlobalLocalDiffusion/space_mc.py
+   ```
+
+   This step performs Brownian and anomalous diffusion analysis and evaluates the observed stress-granule measurements against the SPaCe-MC permutation distribution.
+
+6. To generate figures, update the input paths in `GlobalLocalDiffusion/space_mc_visualization.py` and run:
+
+   ```bash
+   python GlobalLocalDiffusion/space_mc_visualization.py
+   ```
+
+# Expected Demo Output
+
+The demo produces output files in the directories specified in the scripts, including:
+
+* trajectory datasets assigned to stress granules and randomized control regions;
+* Monte Carlo permutation datasets;
+* diffusion-analysis results for Brownian and anomalous diffusion models;
+* summary tables and statistical results, including empirical permutation p-values;
+* null-distribution plots, confidence intervals, and other publication-quality figures.
+
+Runtime depends on the number of trajectories, image size, and number of Monte Carlo permutations. Analyses of the full Figshare SPT dataset may take substantially longer than a small test dataset.
+
+# Instructions for Use with New Data
+
+To analyze new data:
+
+1. Prepare SPT trajectory files in CSV format and corresponding masks.
+2. Update the local input and output paths near the beginning of each relevant script.
+3. Run the analysis in the following order:
+
+   1. Generate SPaCe-MC control regions (`GlobalLocalDiffusion/space_mc_permutation_sampling.py`).
+   2. Perform diffusion analysis (`GlobalLocalDiffusion/space_mc.py`).
+   3. Generate visualizations (`GlobalLocalDiffusion/space_mc_visualization.py`).
+   4. Optionally evaluate the method using simulated trajectories (`GlobalLocalDiffusion/space_mc_simulation_validation/`).
+
+# Reproduction of Manuscript Analyses
+
+The Figshare datasets and scripts in this repository can be used to reproduce the analyses presented in the accompanying manuscript. Use the supplied data, set the input and output paths as described above, and run the scripts in the workflow order.
+
+Because the scripts were developed for the original study, users may need to adjust local directory paths and analysis parameters to match their own system and data organization.
 
 # Citation
 
 If you use this code in your research, please cite:
 
-*Authors*. **SPaCe-MC: Spatially Constrained Monte Carlo Analysis of Single-Particle Diffusion in Stress Granules.**
+*E. Korunova, V. Sikirzhytski,  J. L Twiss,  M. Shtutman,  P. Vasquez.* **Spatially Constrained Monte Carlo Permutation Test Reveals Diffusion Changes Near Stress Granules**
 
 ---
 
